@@ -72,6 +72,107 @@
 
                 function drawCharts(filtered) {
                     // all charting logic would go here (as you already have)
+                    // 1. Line Chart
+                    Plotly.newPlot("chart1", [{
+                        x: filtered.map(d => d.Date),
+                        y: filtered.map(d => d.Loss_Amount),
+                        type: 'scatter',
+                        mode: 'lines+markers'
+                    }], { title: 'Loss Amount Over Time' });
+
+                    // 2. Scatter
+                    Plotly.newPlot("chart2", [{
+                        x: filtered.map(d => d.Risk_Score),
+                        y: filtered.map(d => d.Loss_Amount),
+                        mode: 'markers',
+                        type: 'scatter'
+                    }], { title: 'Risk Score vs Loss Amount' });
+
+                    // 3. Pie
+                    const categoryLoss = {};
+                    filtered.forEach(row => {
+                        const cat = row.Risk_Category;
+                        categoryLoss[cat] = (categoryLoss[cat] || 0) + row.Loss_Amount;
+                    });
+                    Plotly.newPlot("chart3", [{
+                        labels: Object.keys(categoryLoss),
+                        values: Object.values(categoryLoss),
+                        type: 'pie'
+                    }], { title: 'Loss by Risk Category' });
+
+                    // 4. Box
+                    const categories = [...new Set(filtered.map(d => d.Risk_Category))];
+                    const boxData = categories.map(cat => ({
+                        y: filtered.filter(d => d.Risk_Category === cat).map(d => d.Loss_Amount),
+                        type: 'box',
+                        name: cat
+                    }));
+                    Plotly.newPlot("chart4", boxData, { title: 'Loss Distribution by Risk Category' });
+
+                    // 5. Waterfall
+                    const steps = filtered.slice(0, 8).map((d, i) => ({
+                        type: 'waterfall',
+                        x: [`T${i + 1}`],
+                        y: [d.Loss_Amount],
+                        name: d.Date
+                    }));
+                    Plotly.newPlot("chart5", steps, { title: 'Sample Waterfall – Loss Accumulation' });
+
+                    // 6. Heatmap
+                    const heatData = {};
+                    filtered.forEach(row => {
+                        const key = row.Risk_Category + '-' + row.Risk_Score;
+                        heatData[key] = (heatData[key] || 0) + 1;
+                    });
+                    const z = categories.map(cat =>
+                        [1, 2, 3, 4, 5].map(score =>
+                            heatData[cat + '-' + score] || 0
+                        )
+                    );
+                    Plotly.newPlot("chart6", [{
+                        z: z,
+                        x: [1, 2, 3, 4, 5],
+                        y: categories,
+                        type: 'heatmap',
+                        colorscale: 'YlOrRd'
+                    }], { title: 'Heatmap: Category vs Risk Score' });
+
+                    // 7. Histogram
+                    Plotly.newPlot("chart7", [{
+                        x: filtered.map(d => d.Loss_Amount),
+                        type: 'histogram'
+                    }], { title: 'Histogram: Loss Amount Distribution' });
+
+                    // 8. Bubble
+                    const bubbleMap = {};
+                    filtered.forEach(row => {
+                        const key = row.Risk_Score + '-' + Math.round(row.Loss_Amount / 1000);
+                        bubbleMap[key] = (bubbleMap[key] || 0) + 1;
+                    });
+                    const bubbleX = [], bubbleY = [], bubbleSize = [];
+                    for (let key in bubbleMap) {
+                        const [score, loss] = key.split('-').map(Number);
+                        bubbleX.push(score);
+                        bubbleY.push(loss * 1000);
+                        bubbleSize.push(bubbleMap[key] * 10);
+                    }
+                    Plotly.newPlot("chart8", [{
+                        x: bubbleX,
+                        y: bubbleY,
+                        mode: 'markers',
+                        marker: { size: bubbleSize },
+                        type: 'scatter'
+                    }], { title: 'Bubble Chart: Risk Score vs Loss (Bubble = Frequency)' });
+
+                    // 9. Timeline chart (line with markers only)
+                    Plotly.newPlot("chart9", [{
+                        x: filtered.map(d => d.Date),
+                        y: filtered.map(d => d.Loss_Amount),
+                        type: 'scatter',
+                        mode: 'markers+text',
+                        text: filtered.map(d => d.Risk_Category),
+                        textposition: 'top center'
+                    }], { title: 'Timeline: Events by Loss (with Risk Category Labels)' });
                 }
             }
         });
