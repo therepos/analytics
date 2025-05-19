@@ -1,32 +1,18 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <title>ERM Data Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 20px;
-        }
-
-        .chart {
-            width: 100%;
-            height: 400px;
-            margin-bottom: 40px;
-        }
-
-        label {
-            font-weight: bold;
-            margin-right: 10px;
-        }
+        body { font-family: 'Roboto', sans-serif; margin: 20px; }
+        .chart { width: 100%; height: 400px; margin-bottom: 40px; }
+        label { font-weight: bold; margin-right: 10px; }
     </style>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/1.13/auth0-spa-js.production.js"></script>
 </head>
-
 <body>
     <h1>ERM Data Analytics Dashboard</h1>
     <label for="categoryFilter">Filter by Risk Category:</label>
@@ -45,159 +31,51 @@
     <div id="chart9" class="chart"></div>
 
     <script>
-        window.addEventListener("DOMContentLoaded", async () => {
-            // Only run Auth0 on Netlify
-            // Auth0 is sourced from https://manage.auth0.com/
-            if (location.hostname.includes("netlify.app") || location.hostname === "https://warm-biscochitos-010ccc.netlify.app") {
-                const auth0 = await createAuth0Client({
-                    domain: "dev-o1tvtsc3fv5nyk32.us.auth0.com",
-                    client_id: "tvMlCF8FOMZCTSjeejVpJs8bqqAiNKmm"
+    window.addEventListener("DOMContentLoaded", async () => {
+        const isNetlify = location.hostname.includes("netlify.app") || location.hostname === "warm-biscochitos-010ccc.netlify.app";
+
+        if (isNetlify) {
+            const auth0 = await createAuth0Client({
+                domain: "dev-o1tvtsc3fv5nyk32.us.auth0.com",
+                client_id: "tvMlCF8FOMZCTSjeejVpJs8bqqAiNKmm"
+            });
+
+            const isAuthenticated = await auth0.isAuthenticated();
+            if (!isAuthenticated) {
+                await auth0.loginWithRedirect();
+                return;
+            }
+        }
+
+        Papa.parse("risk_data.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                const data = results.data;
+                const dropdown = document.getElementById("categoryFilter");
+                const uniqueCategories = [...new Set(data.map(d => d.Risk_Category))];
+                uniqueCategories.forEach(cat => {
+                    const opt = document.createElement("option");
+                    opt.value = cat;
+                    opt.text = cat;
+                    dropdown.appendChild(opt);
                 });
 
-                const isAuthenticated = await auth0.isAuthenticated();
+                dropdown.addEventListener("change", () => {
+                    const selected = dropdown.value;
+                    const filtered = selected === "All" ? data : data.filter(d => d.Risk_Category === selected);
+                    drawCharts(filtered);
+                });
 
-                if (!isAuthenticated) {
-                    await auth0.loginWithRedirect();
-                    return;
+                drawCharts(data);
+
+                function drawCharts(filtered) {
+                    // all charting logic would go here (as you already have)
                 }
-
-                console.log("User is logged in");
-                // Load dashboard
-                Papa.parse("risk_data.csv", {
-                    download: true,
-                    header: true,
-                    dynamicTyping: true,
-                    complete: function (results) {
-                        const data = results.data;
-
-                        const dropdown = document.getElementById("categoryFilter");
-                        const uniqueCategories = [...new Set(data.map(d => d.Risk_Category))];
-                        uniqueCategories.forEach(cat => {
-                            const opt = document.createElement("option");
-                            opt.value = cat;
-                            opt.text = cat;
-                            dropdown.appendChild(opt);
-                        });
-
-                        dropdown.addEventListener("change", () => {
-                            const selected = dropdown.value;
-                            const filtered = selected === "All" ? data : data.filter(d => d.Risk_Category === selected);
-                            drawCharts(filtered);
-                        });
-
-                        drawCharts(data); // Initial render
-
-                        function drawCharts(filtered) {
-                            // 1. Line Chart
-                            Plotly.newPlot("chart1", [{
-                                x: filtered.map(d => d.Date),
-                                y: filtered.map(d => d.Loss_Amount),
-                                type: 'scatter',
-                                mode: 'lines+markers'
-                            }], { title: 'Loss Amount Over Time' });
-
-                            // 2. Scatter
-                            Plotly.newPlot("chart2", [{
-                                x: filtered.map(d => d.Risk_Score),
-                                y: filtered.map(d => d.Loss_Amount),
-                                mode: 'markers',
-                                type: 'scatter'
-                            }], { title: 'Risk Score vs Loss Amount' });
-
-                            // 3. Pie
-                            const categoryLoss = {};
-                            filtered.forEach(row => {
-                                const cat = row.Risk_Category;
-                                categoryLoss[cat] = (categoryLoss[cat] || 0) + row.Loss_Amount;
-                            });
-                            Plotly.newPlot("chart3", [{
-                                labels: Object.keys(categoryLoss),
-                                values: Object.values(categoryLoss),
-                                type: 'pie'
-                            }], { title: 'Loss by Risk Category' });
-
-                            // 4. Box
-                            const categories = [...new Set(filtered.map(d => d.Risk_Category))];
-                            const boxData = categories.map(cat => ({
-                                y: filtered.filter(d => d.Risk_Category === cat).map(d => d.Loss_Amount),
-                                type: 'box',
-                                name: cat
-                            }));
-                            Plotly.newPlot("chart4", boxData, { title: 'Loss Distribution by Risk Category' });
-
-                            // 5. Waterfall
-                            const steps = filtered.slice(0, 8).map((d, i) => ({
-                                type: 'waterfall',
-                                x: [`T${i + 1}`],
-                                y: [d.Loss_Amount],
-                                name: d.Date
-                            }));
-                            Plotly.newPlot("chart5", steps, { title: 'Sample Waterfall – Loss Accumulation' });
-
-                            // 6. Heatmap
-                            const heatData = {};
-                            filtered.forEach(row => {
-                                const key = row.Risk_Category + '-' + row.Risk_Score;
-                                heatData[key] = (heatData[key] || 0) + 1;
-                            });
-                            const z = categories.map(cat =>
-                                [1, 2, 3, 4, 5].map(score =>
-                                    heatData[cat + '-' + score] || 0
-                                )
-                            );
-                            Plotly.newPlot("chart6", [{
-                                z: z,
-                                x: [1, 2, 3, 4, 5],
-                                y: categories,
-                                type: 'heatmap',
-                                colorscale: 'YlOrRd'
-                            }], { title: 'Heatmap: Category vs Risk Score' });
-
-                            // 7. Histogram
-                            Plotly.newPlot("chart7", [{
-                                x: filtered.map(d => d.Loss_Amount),
-                                type: 'histogram'
-                            }], { title: 'Histogram: Loss Amount Distribution' });
-
-                            // 8. Bubble
-                            const bubbleMap = {};
-                            filtered.forEach(row => {
-                                const key = row.Risk_Score + '-' + Math.round(row.Loss_Amount / 1000);
-                                bubbleMap[key] = (bubbleMap[key] || 0) + 1;
-                            });
-                            const bubbleX = [], bubbleY = [], bubbleSize = [];
-                            for (let key in bubbleMap) {
-                                const [score, loss] = key.split('-').map(Number);
-                                bubbleX.push(score);
-                                bubbleY.push(loss * 1000);
-                                bubbleSize.push(bubbleMap[key] * 10);
-                            }
-                            Plotly.newPlot("chart8", [{
-                                x: bubbleX,
-                                y: bubbleY,
-                                mode: 'markers',
-                                marker: { size: bubbleSize },
-                                type: 'scatter'
-                            }], { title: 'Bubble Chart: Risk Score vs Loss (Bubble = Frequency)' });
-
-                            // 9. Timeline chart (line with markers only)
-                            Plotly.newPlot("chart9", [{
-                                x: filtered.map(d => d.Date),
-                                y: filtered.map(d => d.Loss_Amount),
-                                type: 'scatter',
-                                mode: 'markers+text',
-                                text: filtered.map(d => d.Risk_Category),
-                                textposition: 'top center'
-                            }], { title: 'Timeline: Events by Loss (with Risk Category Labels)' });
-                        }
-                    }
-                });
-            } else {
-                console.log("Skipping Auth0 — not on Netlify");
             }
         });
+    });
     </script>
-
 </body>
-
 </html>
