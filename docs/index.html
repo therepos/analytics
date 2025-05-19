@@ -46,7 +46,8 @@
 
     <script>
         window.addEventListener("DOMContentLoaded", async () => {
-            // Only run Auth0 on Netlify (or your custom domain)
+            // Only run Auth0 on Netlify
+            // Auth0 is sourced from https://manage.auth0.com/
             if (location.hostname.includes("netlify.app") || location.hostname === "https://warm-biscochitos-010ccc.netlify.app") {
                 const auth0 = await createAuth0Client({
                     domain: "dev-o1tvtsc3fv5nyk32.us.auth0.com",
