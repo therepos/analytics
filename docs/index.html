@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ERM Data Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>ERM Data Analytics Dashboard</h1>
+
+    <div id="chart1" style="width:100%;height:400px;"></div>
+    <div id="chart2" style="width:100%;height:400px;"></div>
+    <div id="chart3" style="width:100%;height:400px;"></div>
+
+    <script>
+        Papa.parse("risk_data.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                const data = results.data;
+
+                // Chart 1: Loss Over Time
+                const dates = data.map(d => d.Date);
+                const losses = data.map(d => d.Loss_Amount);
+                Plotly.newPlot("chart1", [{
+                    x: dates,
+                    y: losses,
+                    type: 'scatter',
+                    mode: 'lines+markers'
+                }], { title: 'Loss Amount Over Time' });
+
+                // Chart 2: Risk Score Distribution
+                const scores = data.map(d => d.Risk_Score);
+                const scoreCounts = {};
+                scores.forEach(s => scoreCounts[s] = (scoreCounts[s] || 0) + 1);
+                Plotly.newPlot("chart2", [{
+                    x: Object.keys(scoreCounts),
+                    y: Object.values(scoreCounts),
+                    type: 'bar'
+                }], { title: 'Risk Score Distribution' });
+
+                // Chart 3: Loss by Risk Category
+                const categoryLoss = {};
+                data.forEach(row => {
+                    const cat = row.Risk_Category;
+                    categoryLoss[cat] = (categoryLoss[cat] || 0) + row.Loss_Amount;
+                });
+                Plotly.newPlot("chart3", [{
+                    x: Object.keys(categoryLoss),
+                    y: Object.values(categoryLoss),
+                    type: 'bar'
+                }], { title: 'Total Loss by Risk Category' });
+            }
+        });
+    </script>
+</body>
+</html>
